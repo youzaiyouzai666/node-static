@@ -19,6 +19,7 @@ class StaticServer {
         this.indexPage     = config.indexPage;
         this.isOpenBrowser = config.isOpenBrowser || false //是否打开默认browser
         this.zipMatch      = config.zipMatch;
+        this.maxAge        = config.maxAge
     }
 
     start() {
@@ -57,11 +58,21 @@ class StaticServer {
                 } else if (stat.isDirectory()) {
                     this.respondRedirect(req, res);
                 } else {
-                    this.respondFile(pathName, req, res);
+                    this.respond(pathName, req, res);
                 }
             } else {
+                console.info('文件未找到',err);
                 this.respondNotFile(req, res);
             }
+        })
+    }
+
+    respond(pathName, req, res) {
+        fs.stat(pathName, (err, stat) => {
+            if (err) return this.respondError(req, res);
+
+            this.setFreshHeaders(stat, res);
+            this.respondFile(pathName, req, res);
         })
     }
 
@@ -73,7 +84,7 @@ class StaticServer {
             console.error("The error raised was:", err);
         });
         res.setHeader('Content-Type', mime.lookup(pathName));
-        if(this.hasCompress(pathName)){
+        if (this.hasCompress(pathName)) {
             readStream = this.compressHandler(readStream, req, res);
         }
         readStream.pipe(res);//管道
@@ -86,6 +97,7 @@ class StaticServer {
         res.end(`<h1>Not Found</h1><p>The requested URL ${req.url} was not found on this server.</p>`);
     };
 
+
     /**
      * 处理目录
      * @param pathName
@@ -96,12 +108,11 @@ class StaticServer {
         const indexPagePath = path.join(pathName, this.indexPage);
         //判断是否存在默认页面
         if (fs.existsSync(indexPagePath)) {
-            this.respondFile(indexPagePath, req, res);
+            this.respond(indexPagePath, req, res);
         } else {
             fs.readdir(pathName, (err, files) => {
                 if (err) {
-                    res.writeHead(500);
-                    return res.end(err);
+                    return this.respondError(res, err);
                 }
                 const requestPath = new URL(pathName).pathname;
                 let content       = `<h1>Index of ${requestPath}</h1>`;
@@ -121,6 +132,11 @@ class StaticServer {
         }
     }
 
+    respondError(res, err) {
+        res.writeHead(500);
+        return res.end(err);
+    }
+
     /**
      * 目录跳301
      * @param req
@@ -136,7 +152,7 @@ class StaticServer {
     }
 
     /**
-     * 如果
+     * 处理压缩
      * @param readStream
      * @param req
      * @param res
@@ -156,8 +172,13 @@ class StaticServer {
 
     }
 
-    hasCompress(pathName){
+    hasCompress(pathName) {
         return path.extname(pathName).match(this.zipMatch);
+    }
+
+    setFreshHeaders(stat, res) {
+        const lastModified = stat.mtime.toUTCString();
+        res.setHeader('Cache-Control', `public,max-age=${this.maxAge}`)
     }
 }
 
