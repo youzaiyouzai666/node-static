@@ -197,7 +197,7 @@ class StaticServer {
     }
 
     /**
-     *
+     * 静态资源
      * @param stat
      * @param res
      */
