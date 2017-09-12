@@ -1,8 +1,8 @@
 {
   "port": 0,
-  "root": "D:/demo/node-static/static",
+  "root": "E:/demo2/node-static/static",
   "indexPage": "index.html",
   "isOpenBrowser": true,
   "zipMatch": "^\\.(css|js|html)$",
-  "maxAge": 5000
+  "maxAge": 0
 }

@@ -62,7 +62,7 @@ class StaticServer {
                 }
             } else {
                 console.info('文件未找到',err);
-                this.respondNotFile(req, res);
+                StaticServer.respondNotFile(req, res);
             }
         })
     }
@@ -72,8 +72,28 @@ class StaticServer {
             if (err) return this.respondError(req, res);
 
             this.setFreshHeaders(stat, res);
-            this.respondFile(pathName, req, res);
+            if(this.isFresh(req.headers, res.getHeaders())){
+                this.respondNotModified(res);
+            }else{
+                this.respondFile(pathName, req, res);
+            }
         })
+    }
+
+    isFresh(reqHeaders, resHeaders){
+        const  lastModified = reqHeaders['if-modified-since'];
+        if(!lastModified){
+         return false;
+        }
+        if(lastModified  && lastModified == resHeaders['last-modified']){
+            return true;
+        }
+        return false;
+    }
+
+    respondNotModified(res){
+        res.statusCode = 304;
+        res.end();
     }
 
     respondFile(pathName, req, res) {
@@ -85,12 +105,12 @@ class StaticServer {
         });
         res.setHeader('Content-Type', mime.lookup(pathName));
         if (this.hasCompress(pathName)) {
-            readStream = this.compressHandler(readStream, req, res);
+            readStream = StaticServer.compressHandler(readStream, req, res);
         }
         readStream.pipe(res);//管道
     }
 
-    respondNotFile(req, res) {
+    static respondNotFile(req, res) {
         res.writeHead(404, {
             'Content-Type': 'text/html'
         });
@@ -158,7 +178,7 @@ class StaticServer {
      * @param res
      * @returns {*}
      */
-    compressHandler(readStream, req, res) {
+    static compressHandler(readStream, req, res) {
         const acceptEncoding = req.headers['accept-encoding'];
         if (!acceptEncoding || !acceptEncoding.match(/\b(gzip|deflate)\b/)) {//\b匹配边界
             return readStream;
@@ -176,9 +196,17 @@ class StaticServer {
         return path.extname(pathName).match(this.zipMatch);
     }
 
+    /**
+     *
+     * @param stat
+     * @param res
+     */
     setFreshHeaders(stat, res) {
         const lastModified = stat.mtime.toUTCString();
-        res.setHeader('Cache-Control', `public,max-age=${this.maxAge}`)
+        res.setHeader('Cache-Control', `public,max-age=${this.maxAge*1000}`);
+        res.setHeader('Expires',(new Date(Date.now() + this.maxAge * 1000)).toUTCString());
+
+        res.setHeader('Last-Modified',lastModified);
     }
 }
 
