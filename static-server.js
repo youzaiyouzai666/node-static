@@ -14,6 +14,7 @@ const hasTrailingSlash = url => url[url.length - 1] === '\\';
 
 class StaticServer {
     constructor() {
+        //将配置文件中参数直接转换为 object对象属性，与引入第三方config对象 优缺点
         this.port          = config.port || 0;
         this.root          = config.root;
         this.indexPage     = config.indexPage;
